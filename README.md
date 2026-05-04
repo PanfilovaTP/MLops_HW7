@@ -120,9 +120,10 @@ curl http://127.0.0.1:18080/health
 Проверка /predict через балансировщик:
 
 ```bash
-curl -X POST http://127.0.0.1:18080/predict \
-  -H "Content-Type: application/json" \
-  -d '{"x":[1,2,3]}'
+Invoke-RestMethod -Uri "http://127.0.0.1:18080/predict" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"x":[1,2,3]}' | ConvertTo-Json -Depth 5
 ```
 
 Для PowerShell на Windows:

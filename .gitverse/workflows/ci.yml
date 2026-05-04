@@ -1,4 +1,4 @@
-﻿name: GitVerse ML Pipeline
+name: GitVerse ML Pipeline
 
 on:
   push:
