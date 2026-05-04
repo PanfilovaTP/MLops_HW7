@@ -14,7 +14,6 @@ jobs:
       - name: Install dependencies
         run: |
           python --version
-          python -m pip install --break-system-packages --upgrade pip
           python -m pip install --break-system-packages -r requirements.txt
 
       - name: Make pipeline reproducible
@@ -32,11 +31,10 @@ jobs:
       - name: Install dependencies
         run: |
           python --version
-          python -m pip install --break-system-packages --upgrade pip
           python -m pip install --break-system-packages -r requirements.txt
 
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
 
   package_project:
     runs-on: ubuntu-latest
