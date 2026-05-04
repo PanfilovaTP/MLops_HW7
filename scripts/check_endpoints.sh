@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 echo "v1 health:"
@@ -8,9 +8,9 @@ echo "v2 health:"
 curl -s http://localhost:8002/health && echo
 
 echo "nginx canary health:"
-curl -s http://localhost:8080/health && echo
+curl -s http://localhost:18080/health && echo
 
 echo "predict via nginx:"
-curl -s -X POST http://localhost:8080/predict \
+curl -s -X POST http://localhost:18080/predict \
   -H "Content-Type: application/json" \
   -d '{"x": [1, 2, 3]}' && echo
