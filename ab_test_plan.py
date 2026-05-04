@@ -1,19 +1,18 @@
 from math import ceil, sqrt
 
-# План A/B-теста для сравнения текущей модели v1.0.0 и новой модели v1.1.0.
-# Основная метрика: доля корректных предсказаний после получения разметки/факта.
-# H0: качество v1.1.0 не выше качества v1.0.0.
-# H1: качество v1.1.0 выше качества v1.0.0 минимум на MDE.
+import pandas as pd
+
 
 alpha = 0.05
 power = 0.80
+
 baseline_accuracy = 0.90
-mde = 0.03
+mde = 0.05
 new_accuracy = baseline_accuracy + mde
 
-# Нормальная аппроксимация для двух независимых долей.
 z_alpha_2 = 1.96
 z_beta = 0.84
+
 p_pool = (baseline_accuracy + new_accuracy) / 2
 
 n_per_group = (
@@ -30,11 +29,34 @@ n_per_group = (
 )
 
 n_per_group = ceil(n_per_group)
-print("План A/B-теста")
-print(f"alpha = {alpha}")
-print(f"power = {power}")
-print(f"baseline accuracy = {baseline_accuracy:.2f}")
-print(f"MDE = {mde:.2f}")
-print(f"Размер выборки на группу: {n_per_group}")
-print(f"Общий размер выборки: {2 * n_per_group}")
-print("Правило решения: выкатывать v1.1.0 на 100%, если метрика статистически значимо выше и нет роста ошибок /predict и /health.")
+
+ab_test_plan = pd.DataFrame(
+    {
+        "Параметр": [
+            "Контрольная версия",
+            "Тестовая версия",
+            "Основная метрика",
+            "alpha",
+            "power",
+            "baseline accuracy",
+            "MDE",
+            "Размер выборки на группу",
+            "Общий размер выборки",
+            "Начальное распределение трафика",
+        ],
+        "Значение": [
+            "v1.0.0",
+            "v1.1.0",
+            "доля корректных предсказаний",
+            alpha,
+            power,
+            baseline_accuracy,
+            mde,
+            n_per_group,
+            2 * n_per_group,
+            "90/10",
+        ],
+    }
+)
+
+print(ab_test_plan.to_string(index=False))
