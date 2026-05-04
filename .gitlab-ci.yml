@@ -1,47 +1,35 @@
-﻿image: python:3.11-slim
-
-stages:
-  - reproducibility
+﻿stages:
+  - build
   - test
   - package
 
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  PYTHONUNBUFFERED: "1"
-
-cache:
-  paths:
-    - .cache/pip
-
-before_script:
-  - python --version
-  - python -m pip install --upgrade pip
-  - pip install -r requirements.txt
-
-make_pipeline_reproducible:
-  stage: reproducibility
+build_model:
+  image: python:3.11-slim
+  stage: build
   script:
-    - echo "Make pipeline reproducible"
-    - echo "Save dependencies, seed, model parameters and metrics"
-    - pip freeze | tee requirements.lock.txt
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
     - python ml_pipeline.py
     - cat artifacts/metrics.json
   artifacts:
     when: always
     paths:
-      - requirements.lock.txt
       - artifacts/metrics.json
     expire_in: 1 week
 
 unit_tests:
+  image: python:3.11-slim
   stage: test
   script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
     - pytest -q
 
 package_project:
+  image: python:3.11-slim
   stage: package
   script:
-    - echo "Check deployment files"
     - test -f Dockerfile
     - test -f docker-compose.canary.yml
     - test -f nginx/current.conf
