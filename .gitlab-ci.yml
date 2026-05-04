@@ -1,5 +1,36 @@
-hello_job:
+﻿stages:
+  - build
+  - test
+  - package
+
+build_model:
   image: python:3.11-slim
+  stage: build
   script:
-    - echo "hello from GitLab CI"
     - python --version
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - python ml_pipeline.py
+    - cat artifacts/metrics.json
+  artifacts:
+    when: always
+    paths:
+      - artifacts/metrics.json
+    expire_in: 1 week
+
+unit_tests:
+  image: python:3.11-slim
+  stage: test
+  script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pytest -q
+
+package_project:
+  image: python:3.11-slim
+  stage: package
+  script:
+    - test -f Dockerfile
+    - test -f docker-compose.canary.yml
+    - test -f nginx/current.conf
+    - test -f README.md
