@@ -1,9 +1,9 @@
+﻿image: python:3.11-slim
+
 stages:
   - reproducibility
   - test
   - package
-
-image: python:3.11-slim
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -21,7 +21,8 @@ before_script:
 make_pipeline_reproducible:
   stage: reproducibility
   script:
-    - echo "Фиксируем зависимости, seed, параметры модели и метрики."
+    - echo "Make pipeline reproducible"
+    - echo "Save dependencies, seed, model parameters and metrics"
     - pip freeze | tee requirements.lock.txt
     - python ml_pipeline.py
     - cat artifacts/metrics.json
@@ -40,7 +41,7 @@ unit_tests:
 package_project:
   stage: package
   script:
-    - echo "Проверяем, что файлы для деплоя присутствуют."
+    - echo "Check deployment files"
     - test -f Dockerfile
     - test -f docker-compose.canary.yml
     - test -f nginx/current.conf
