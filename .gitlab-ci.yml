@@ -1,0 +1,47 @@
+stages:
+  - reproducibility
+  - test
+  - package
+
+image: python:3.11-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTHONUNBUFFERED: "1"
+
+cache:
+  paths:
+    - .cache/pip
+
+before_script:
+  - python --version
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.txt
+
+make_pipeline_reproducible:
+  stage: reproducibility
+  script:
+    - echo "Фиксируем зависимости, seed, параметры модели и метрики."
+    - pip freeze | tee requirements.lock.txt
+    - python ml_pipeline.py
+    - cat artifacts/metrics.json
+  artifacts:
+    when: always
+    paths:
+      - requirements.lock.txt
+      - artifacts/metrics.json
+    expire_in: 1 week
+
+unit_tests:
+  stage: test
+  script:
+    - pytest -q
+
+package_project:
+  stage: package
+  script:
+    - echo "Проверяем, что файлы для деплоя присутствуют."
+    - test -f Dockerfile
+    - test -f docker-compose.canary.yml
+    - test -f nginx/current.conf
+    - test -f README.md

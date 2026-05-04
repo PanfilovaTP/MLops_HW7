@@ -1,0 +1,9 @@
+{
+  "metric": "accuracy",
+  "accuracy": 0.9,
+  "random_state": 42,
+  "model_params": {
+    "n_estimators": 100,
+    "random_state": 42
+  }
+}

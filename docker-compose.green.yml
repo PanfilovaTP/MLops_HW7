@@ -1,0 +1,14 @@
+services:
+  ml-service-green:
+    build: .
+    container_name: hw7-ml-service-green
+    environment:
+      MODEL_VERSION: "v1.1.0"
+      RANDOM_STATE: "42"
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
