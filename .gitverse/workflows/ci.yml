@@ -14,13 +14,13 @@ jobs:
       - name: Install dependencies
         run: |
           python --version
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install --break-system-packages --upgrade pip
+          python -m pip install --break-system-packages -r requirements.txt
 
       - name: Make pipeline reproducible
         run: |
           echo "Save dependencies, seed, model parameters and metrics"
-          pip freeze | tee requirements.lock.txt
+          python -m pip freeze | tee requirements.lock.txt
           python ml_pipeline.py
           cat artifacts/metrics.json
 
@@ -32,8 +32,8 @@ jobs:
       - name: Install dependencies
         run: |
           python --version
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install --break-system-packages --upgrade pip
+          python -m pip install --break-system-packages -r requirements.txt
 
       - name: Run tests
         run: pytest -q
