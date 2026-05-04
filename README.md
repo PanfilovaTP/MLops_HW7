@@ -1,18 +1,35 @@
-# HW7. Сборка конвейера CI/CD для ML-сервиса
+# HW7. CI/CD для ML-сервиса
 
-## 1. Описание проекта
+Проект для домашнего задания №7 по теме CI/CD и безопасного развертывания ML-сервиса.
 
-Проект демонстрирует CI/CD-конвейер для ML-сервиса и безопасное развертывание новой версии модели. В качестве сервиса используется FastAPI-приложение, которое обучает простую модель `RandomForestClassifier` на датасете Iris и предоставляет два endpoint:
+В проекте реализован небольшой ML-сервис на FastAPI с двумя endpoint:
 
-- `GET /health` — проверка состояния сервиса и версии модели;
-- `POST /predict` — получение предсказания модели.
+- GET /health — проверка статуса сервиса и версии модели;
+- POST /predict — получение предсказания.
 
-В проекте используются две версии ML-сервиса:
+Для безопасного выкатывания новой версии используется Canary Deployment: старая версия сервиса v1.0.0 и новая версия v1.1.0 запускаются параллельно, а Nginx распределяет между ними трафик.
 
-- `v1.0.0` — стабильная версия;
-- `v1.1.0` — новая версия, которая выкатывается через Canary Deployment.
+## Репозитории
 
-## 2. Структура проекта
+Основной GitHub-репозиторий:
+
+https://github.com/PanfilovaTP/MLops_HW7
+
+GitVerse-репозиторий, использованный как аналог GitLab:
+
+https://gitverse.ru/TatianaPanfilova/MLops_HW7
+
+Успешный CI/CD-пайплайн GitVerse:
+
+https://gitverse.ru/TatianaPanfilova/MLops_HW7/cicd/4
+
+GitHub Actions:
+
+https://github.com/PanfilovaTP/MLops_HW7/actions
+
+GitLab-проект был создан, но запуск GitLab CI/CD на GitLab.com оказался недоступен из-за требования identity verification. Поэтому для выполнения условия “GitLab или аналог” был использован GitVerse.
+
+## Структура проекта
 
 ```text
 .
@@ -30,10 +47,13 @@
 │   ├── check_endpoints.sh
 │   └── switch_canary.sh
 ├── tests/
+│   ├── conftest.py
 │   └── test_app.py
 ├── .github/workflows/
 │   ├── ci.yml
 │   └── deploy.yml
+├── .gitverse/workflows/
+│   └── ci.yml
 ├── .gitlab-ci.yml
 ├── Dockerfile
 ├── docker-compose.canary.yml
@@ -45,68 +65,43 @@
 └── README.md
 ```
 
-## 3. GitLab CI/CD
+## Основные файлы
 
-В файле `.gitlab-ci.yml` настроены три стадии:
+- app/main.py — FastAPI-сервис с ручками /health и /predict;
+- ml_pipeline.py — воспроизводимый ML-пайплайн на датасете Iris;
+- Dockerfile — сборка Docker-образа сервиса;
+- docker-compose.canary.yml — запуск двух версий сервиса и Nginx;
+- nginx/ — конфигурации Nginx для режимов 90/10, 50/50, 100% и rollback;
+- scripts/switch_canary.sh — переключение трафика между версиями;
+- tests/ — unit-тесты для /health и /predict;
+- ab_test_plan.py — расчет параметров A/B-теста;
+- doc/architecture/decisions/ — ADR-файл с выбором стратегии деплоя;
+- .gitverse/workflows/ci.yml — CI/CD workflow для GitVerse;
+- .github/workflows/ci.yml — CI workflow для GitHub Actions;
+- .github/workflows/deploy.yml — шаблон workflow для сборки Docker-образа и деплоя.
 
-1. `reproducibility` — фиксируются зависимости, seed, параметры модели и метрики;
-2. `test` — запускаются unit-тесты;
-3. `package` — проверяется наличие файлов для деплоя.
+## Локальный запуск ML-пайплайна
 
-Ключевой шаг воспроизводимости:
-
-```yaml
-make_pipeline_reproducible:
-  stage: reproducibility
-  script:
-    - echo "Фиксируем зависимости, seed, параметры модели и метрики."
-    - pip freeze | tee requirements.lock.txt
-    - python ml_pipeline.py
-    - cat artifacts/metrics.json
-  artifacts:
-    when: always
-    paths:
-      - requirements.lock.txt
-      - artifacts/metrics.json
-    expire_in: 1 week
+```bash
+python ml_pipeline.py
 ```
 
-Ссылка на выполненный GitLab pipeline:
+Ожидаемый результат:
 
 ```text
-ВСТАВИТЬ_ССЫЛКУ_НА_GITLAB_PIPELINE
+Точность accuracy: 0.90
+Метрики сохранены в artifacts/metrics.json
 ```
 
-## 4. Обоснование стратегии деплоя
+## Локальный запуск сервиса
 
-Выбрана стратегия **Canary Deployment**.
-
-Причина выбора: в коде ML-сервиса нет полноценной обработки всех возможных ошибок, поэтому нельзя сразу отдавать 100% трафика новой версии. Canary снижает риск: сначала новая версия `v1.1.0` получает только 10% трафика, а стабильная `v1.0.0` продолжает обслуживать 90% запросов.
-
-Сравнение альтернатив:
-
-| Стратегия | Плюсы | Минусы | Риск |
-|---|---|---|---|
-| Blue-Green | Простая проверка двух окружений, быстрый откат | При переключении новая версия может сразу получить 100% трафика | Средний |
-| Canary | Новая версия получает малую долю трафика, можно постепенно увеличивать нагрузку | Нужны балансировщик и контроль метрик | Низкий |
-| Rolling | Экономит ресурсы, постепенно заменяет инстансы | Сложнее сравнивать две версии ML-модели | Средний |
-| Shadow | Новая версия не влияет на пользователя | Требует зеркалирования запросов и сложнее в реализации | Низкий для пользователей, высокий по сложности |
-
-ADR-файл находится здесь:
-
-```text
-doc/architecture/decisions/0001-use-canary-deployment-for-ml-service.md
-```
-
-## 5. Локальный запуск Canary Deployment
-
-Запуск двух версий сервиса и Nginx-балансировщика:
+Запуск Canary Deployment:
 
 ```bash
 docker compose -f docker-compose.canary.yml up --build
 ```
 
-После запуска доступны endpoint:
+После запуска доступны:
 
 ```bash
 curl http://localhost:8001/health
@@ -114,17 +109,13 @@ curl http://localhost:8002/health
 curl http://localhost:8080/health
 ```
 
-Ожидаемые ответы для прямой проверки версий:
+Порты:
 
-```json
-{"status":"ok","version":"v1.0.0"}
-```
+- 8001 — версия v1.0.0;
+- 8002 — версия v1.1.0;
+- 8080 — Nginx-балансировщик.
 
-```json
-{"status":"ok","version":"v1.1.0"}
-```
-
-Проверка предсказания через балансировщик:
+Проверка /predict через балансировщик:
 
 ```bash
 curl -X POST http://localhost:8080/predict \
@@ -132,129 +123,111 @@ curl -X POST http://localhost:8080/predict \
   -d '{"x": [1,2,3]}'
 ```
 
-Пример ответа:
+## Canary Deployment
 
-```json
-{
-  "status": "ok",
-  "version": "v1.1.0",
-  "prediction": 1,
-  "class_name": "versicolor",
-  "probabilities": [0.0, 0.8, 0.2],
-  "features_used": [1.0, 2.0, 3.0, 0.0]
-}
-```
+В проекте подготовлены несколько конфигураций Nginx:
 
-## 6. Переключение трафика и rollback
+- nginx/canary-90-10.conf — 90% трафика на v1.0.0 и 10% на v1.1.0;
+- nginx/canary-50-50.conf — равное распределение трафика;
+- nginx/canary-100.conf — 100% трафика на v1.1.0;
+- nginx/rollback.conf — возврат 100% трафика на v1.0.0.
 
-Изначально используется схема 90/10:
-
-```text
-v1.0.0 — 90%
-v1.1.0 — 10%
-```
-
-Увеличить долю новой версии до 50%:
+Переключение режима:
 
 ```bash
+./scripts/switch_canary.sh 90-10
 ./scripts/switch_canary.sh 50-50
-```
-
-Переключить 100% трафика на новую версию:
-
-```bash
 ./scripts/switch_canary.sh 100
-```
-
-Вернуть 100% трафика на старую версию при ошибках:
-
-```bash
 ./scripts/switch_canary.sh rollback
 ```
 
-Для быстрой проверки всех endpoint можно использовать:
+На Windows переключение можно выполнить вручную: заменить nginx/current.conf нужной конфигурацией из папки nginx и перезапустить контейнер Nginx.
 
-```bash
-./scripts/check_endpoints.sh
+## Выбранная стратегия деплоя
+
+Для проекта выбрана стратегия Canary Deployment.
+
+Причина выбора: новая версия ML-сервиса не должна сразу получать весь трафик, так как в условии задания указано отсутствие полноценной обработки ошибок. Canary Deployment позволяет сначала направить на новую версию небольшую долю запросов, проверить /health и /predict, а затем постепенно увеличивать долю трафика.
+
+Если новая версия работает нестабильно, можно выполнить rollback на v1.0.0.
+
+ADR-файл:
+
+```text
+doc/architecture/decisions/0001-use-canary-deployment-for-ml-service.md
 ```
 
-## 7. План A/B-тестирования ML-модели
+## A/B-тестирование
 
-Цель A/B-теста — проверить, улучшает ли новая версия модели `v1.1.0` качество по сравнению с `v1.0.0`.
-
-Параметры эксперимента:
-
-- контрольная группа: `v1.0.0`;
-- тестовая группа: `v1.1.0`;
-- основная метрика: доля корректных предсказаний после получения фактической разметки;
-- guardrail-метрики: доля ошибок `/predict`, доля ошибок `/health`, задержка ответа;
-- `alpha = 0.05`;
-- мощность теста `power = 0.80`;
-- базовое качество `baseline accuracy = 0.90`;
-- минимальный детектируемый эффект `MDE = 0.03`.
-
-Расчет размера выборки находится в файле:
+План A/B-тестирования находится в файле:
 
 ```text
 ab_test_plan.py
 ```
 
-Запуск:
+В тесте сравниваются:
+
+- контрольная версия — v1.0.0;
+- тестовая версия — v1.1.0.
+
+Основная метрика — доля корректных предсказаний после получения фактической разметки.
+
+Дополнительные метрики:
+
+- ошибки /predict;
+- статус /health;
+- задержка ответа.
+
+Запуск расчета:
 
 ```bash
 python ab_test_plan.py
 ```
 
-Правило решения: выкатывать `v1.1.0` на 100%, если качество статистически значимо выше, а guardrail-метрики не ухудшились. Если качество не улучшилось или выросла доля ошибок, выполняется rollback на `v1.0.0`.
+## CI/CD
 
-## 8. GitHub Actions
+### GitVerse
 
-Файл деплоя находится здесь:
+GitVerse использован как аналог GitLab для первого CI/CD-пайплайна.
+
+Workflow:
+
+```text
+.gitverse/workflows/ci.yml
+```
+
+Он выполняет:
+
+- установку зависимостей;
+- запуск ml_pipeline.py;
+- проверку artifacts/metrics.json;
+- запуск unit-тестов;
+- проверку файлов, необходимых для деплоя.
+
+Успешный pipeline:
+
+https://gitverse.ru/TatianaPanfilova/MLops_HW7/cicd/4
+
+### GitHub Actions
+
+Основной workflow GitHub Actions:
+
+```text
+.github/workflows/ci.yml
+```
+
+Он запускается при push в main и выполняет:
+
+- установку Python 3.11;
+- установку зависимостей из requirements.txt;
+- запуск ml_pipeline.py;
+- проверку artifacts/metrics.json;
+- запуск pytest.
+
+Также подготовлен файл:
 
 ```text
 .github/workflows/deploy.yml
 ```
 
-Workflow выполняет следующие шаги:
-
-1. забирает код из репозитория;
-2. собирает Docker image;
-3. запускает smoke-test `/health` и `/predict`;
-4. логинится в GitHub Container Registry;
-5. публикует Docker image в GHCR;
-6. вызывает API деплоя, если задан `CLOUD_TOKEN`.
-
-В GitHub Secrets нужно добавить:
-
-```text
-CLOUD_TOKEN
-MODEL_VERSION
-```
-
-Ссылка на выполненный GitHub Actions pipeline:
-
-```text
-ВСТАВИТЬ_ССЫЛКУ_НА_GITHUB_ACTIONS
-```
-
-## 9. Скриншоты для сдачи
-
-Для финальной сдачи нужно приложить скриншоты:
-
-1. успешный GitLab Pipeline;
-2. успешный GitHub Actions workflow;
-3. результат команды `curl http://localhost:8001/health`;
-4. результат команды `curl http://localhost:8002/health`;
-5. результат команды `curl http://localhost:8080/health`;
-6. результат команды `curl -X POST http://localhost:8080/predict -H "Content-Type: application/json" -d '{"x": [1,2,3]}'`;
-7. переключение Canary на `50-50`, `100` или `rollback`.
-
-Скриншоты можно положить в папку:
-
-```text
-screenshots/
-```
-
-## 10. Итоговые выводы
-
-В этом домашнем задании был собран минимальный CI/CD-конвейер для ML-сервиса. Самой простой частью оказалась упаковка FastAPI-сервиса в Docker, потому что приложение небольшое и имеет понятные endpoint `/health` и `/predict`. Более сложной частью стала стратегия деплоя: для ML-модели важно проверять не только техническую доступность сервиса, но и качество ответов новой версии. Из-за отсутствия полноценной обработки ошибок была выбрана стратегия Canary Deployment, так как она снижает риск массового отказа. Новая версия сначала получает только небольшую долю трафика, после чего ее можно постепенно довести до 100%. Если новая версия работает нестабильно, Nginx быстро переключает весь трафик обратно на `v1.0.0`. GitLab CI используется для проверки воспроизводимости ML-пайплайна, а GitHub Actions — для сборки Docker-образа и деплоя. Такой подход применим в реальных проектах, потому что он соединяет тестирование, контроль версий модели, безопасный rollout и rollback.
+Это шаблон deploy workflow для сборки Docker-образа
