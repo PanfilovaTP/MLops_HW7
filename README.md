@@ -82,6 +82,18 @@ GitLab-проект был создан, но запуск GitLab CI/CD на Git
 - .github/workflows/ci.yml — CI workflow для GitHub Actions;
 - .github/workflows/deploy.yml — шаблон workflow для сборки Docker-образа и деплоя.
 
+## Ноутбук с отчетом
+
+Основной отчет по домашнему заданию находится в файле:
+
+```text
+HW7_CICD_Panfilova_Tatiana.ipynb
+```
+
+В ноутбуке собраны пояснения по шагам задания, YAML-файлы CI/CD и Canary Deployment, ADR с выбором стратегии деплоя, план A/B-тестирования, ссылки на успешные CI/CD-пайплайны GitVerse и GitHub Actions, а также скриншоты проверки /health, /predict и rollback.
+
+Часть команд в ноутбуке оставлена как отчет о выполнении локальных действий. Не все ячейки предназначены для повторного запуска, так как команды git, Docker и CI/CD уже выполнялись локально через PowerShell.
+
 ## Локальный запуск ML-пайплайна
 
 ```bash
